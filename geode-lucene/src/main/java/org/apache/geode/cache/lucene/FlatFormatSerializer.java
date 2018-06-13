@@ -16,15 +16,18 @@ package org.apache.geode.cache.lucene;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 
 import org.apache.geode.cache.lucene.internal.repository.serializer.SerializerUtil;
 import org.apache.geode.internal.logging.LogService;
@@ -60,6 +63,7 @@ public class FlatFormatSerializer implements LuceneSerializer {
   private final ConcurrentMap<String, List<String>> tokenizedFieldCache = new ConcurrentHashMap<>();
 
   private static final Logger logger = LogService.getLogger();
+  private ConcurrentMap<String, PointsConfig> pointsConfigMap = new ConcurrentHashMap();
 
   /**
    * Recursively serialize each indexed field's value into a field of lucene document. The field
@@ -120,6 +124,7 @@ public class FlatFormatSerializer implements LuceneSerializer {
       Object fieldValue, List<String> tokenizedFields) {
     if (tokenizedFields.size() == 1) {
       SerializerUtil.addField(doc, indexedFieldName, fieldValue);
+      saveNumericFields(indexedFieldName, fieldValue);
     } else {
       addFieldValue(doc, indexedFieldName, fieldValue,
           tokenizedFields.subList(1, tokenizedFields.size()));
@@ -149,4 +154,20 @@ public class FlatFormatSerializer implements LuceneSerializer {
       }
     }
   }
+
+  private void saveNumericFields(String fieldName, Object fieldValue) {
+    Class<?> clazz = fieldValue.getClass();
+    if (Integer.class.equals(clazz) || Integer.TYPE.equals(clazz)
+        || Float.class.equals(clazz) || Float.TYPE.equals(clazz)
+        || Long.class.equals(clazz) || Long.TYPE.equals(clazz)
+        || Double.class.equals(clazz) || Double.TYPE.equals(clazz)) {
+      pointsConfigMap.computeIfAbsent(fieldName,
+          field -> new PointsConfig(NumberFormat.getInstance(), (Class<? extends Number>) clazz));
+    }
+  }
+
+  public Map<String, PointsConfig> getPointsConfigMap() {
+    return pointsConfigMap;
+  }
+
 }

@@ -17,9 +17,12 @@ package org.apache.geode.cache.lucene.internal.repository.serializer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 
 import org.apache.geode.cache.lucene.LuceneIndex;
 import org.apache.geode.cache.lucene.LuceneSerializer;
@@ -44,6 +47,8 @@ public class HeterogeneousLuceneSerializer implements LuceneSerializer {
    */
   private Map<Class<?>, LuceneSerializer> mappers =
       new CopyOnWriteWeakHashMap<Class<?>, LuceneSerializer>();
+
+  private ConcurrentMap<String, PointsConfig> pointsConfigMap = new ConcurrentHashMap();
 
   private static final Logger logger = LogService.getLogger();
 
@@ -87,6 +92,19 @@ public class HeterogeneousLuceneSerializer implements LuceneSerializer {
       }
       return mapper;
     }
+  }
+
+  public Map<String, PointsConfig> getPointsConfigMap() {
+    PdxLuceneSerializer pdxSerializer = (PdxLuceneSerializer) pdxMapper;
+    pointsConfigMap.putAll(pdxSerializer.getPointsConfigMap());
+
+    for (LuceneSerializer serializer : mappers.values()) {
+      if (serializer instanceof ReflectionLuceneSerializer) {
+        ReflectionLuceneSerializer reflectionSerializer = (ReflectionLuceneSerializer) serializer;
+        pointsConfigMap.putAll(reflectionSerializer.getPointsConfigMap());
+      }
+    }
+    return pointsConfigMap;
   }
 
 }

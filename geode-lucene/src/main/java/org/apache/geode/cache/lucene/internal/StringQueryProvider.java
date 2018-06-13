@@ -18,16 +18,22 @@ package org.apache.geode.cache.lucene.internal;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.queryparser.flexible.core.QueryNodeException;
 import org.apache.lucene.queryparser.flexible.standard.StandardQueryParser;
+import org.apache.lucene.queryparser.flexible.standard.config.PointsConfig;
 import org.apache.lucene.search.Query;
 
 import org.apache.geode.DataSerializer;
+import org.apache.geode.cache.lucene.FlatFormatSerializer;
 import org.apache.geode.cache.lucene.LuceneIndex;
 import org.apache.geode.cache.lucene.LuceneQueryException;
 import org.apache.geode.cache.lucene.LuceneQueryProvider;
+import org.apache.geode.cache.lucene.LuceneSerializer;
+import org.apache.geode.cache.lucene.internal.repository.serializer.HeterogeneousLuceneSerializer;
 import org.apache.geode.internal.DataSerializableFixedID;
 import org.apache.geode.internal.Version;
 import org.apache.geode.internal.logging.LogService;
@@ -65,6 +71,36 @@ public class StringQueryProvider implements LuceneQueryProvider, DataSerializabl
     if (luceneQuery == null) {
       LuceneIndexImpl indexImpl = (LuceneIndexImpl) index;
       StandardQueryParser parser = new StandardQueryParser(indexImpl.getAnalyzer());
+      // parser.getQueryConfigHandler().set(StandardQueryConfigHandler.ConfigurationKeys.DATE_RESOLUTION,
+      // DateTools.Resolution.MILLISECOND);
+      Map<String, PointsConfig> pointsConfigMap = null;
+      LuceneSerializer serializer = index.getLuceneSerializer();
+      if (serializer instanceof HeterogeneousLuceneSerializer) {
+        HeterogeneousLuceneSerializer heteroSerializer = (HeterogeneousLuceneSerializer) serializer;
+        pointsConfigMap = heteroSerializer.getPointsConfigMap();
+      } else if (serializer instanceof FlatFormatSerializer) {
+        FlatFormatSerializer flatFormatSerializer = (FlatFormatSerializer) serializer;
+        pointsConfigMap = flatFormatSerializer.getPointsConfigMap();
+      }
+      logger.info(serializer + ":" + Arrays.toString(indexImpl.getFieldNames()) + ":"
+          + parser.getDateResolution());
+      // pointsConfigMap.put("revenue", new PointsConfig(NumberFormat.getInstance(),
+      // Integer.class));
+      parser.setPointsConfigMap(pointsConfigMap);
+      // TODO1: is DateTools.Resolution optional?
+      // parser.setDateResolution(DateTools.Resolution.MILLISECOND);
+
+      // TODO2: HeterogeneousLuceneSerializer.getPointsConfigMap() calls putAll too often?
+      // TODO3: PdxLuceneSerializer.toDocuments().saveNumericFields's if (...) then
+      // computeIfAbsent(). Is it too expensive?
+      // TODO4: PdxLuceneSerializer and FlatFormatSerializer are using
+      // toDucuments().saveNumericFields() to get meta data, is it possible
+      // to move it to higher level for a generic method?
+      // TODO5: if a member is down, its meta data will be lost. How to recover it?
+      // TODO6: Short.class is not supported yet
+      // TODO7: Does PdxLuceneSerializer support nested field?
+      // TODO8: add example: numeric query __REGION_VALUE_FIELD:123
+      // TODO9: Can FlatFormatSerializer support pdx since it does not contain PdxLuceneSerializer
       parser.setAllowLeadingWildcard(true);
       try {
         luceneQuery = parser.parse(query, defaultField);
