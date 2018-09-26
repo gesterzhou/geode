@@ -562,6 +562,20 @@ public abstract class AbstractGatewaySenderEventProcessor extends Thread
                 }
               }
             }
+
+            // filter out the events with CME
+            Iterator<GatewaySenderEventImpl> cmeItr = filteredList.iterator();
+            while (cmeItr.hasNext()) {
+              GatewaySenderEventImpl event = cmeItr.next();
+              if (event.isConcurrencyConflict()) {
+                cmeItr.remove();
+                logger.debug("The CME event: {} is removed from Gateway Sender queue: {}", event,
+                    sender);
+                statistics.incEventsNotQueued();
+                continue;
+              }
+            }
+
             /*
              * if (filteredList.isEmpty()) { eventQueueRemove(events.size()); continue; }
              */
