@@ -76,11 +76,11 @@ public class LuceneIndexCreationPersistenceIntegrationTest extends LuceneIntegra
   }
 
   @Test
-  public void shouldNotUseOverflowForInternalRegionsWhenUserRegionHasOverflow() {
+  public void CanUseOverflowForInternalRegionsWhenUserRegionHasOverflow() {
     createIndex(cache, "text");
     cache.createRegionFactory(RegionShortcut.PARTITION_OVERFLOW).create(REGION_NAME);
     verifyInternalRegions(region -> {
-      assertTrue(region.getAttributes().getEvictionAttributes().getAction().isNone());
+      assertTrue(region.getAttributes().getEvictionAttributes().getAction().isOverflowToDisk());
     });
   }
 
@@ -113,7 +113,7 @@ public class LuceneIndexCreationPersistenceIntegrationTest extends LuceneIntegra
   }
 
   @Test
-  public void shouldNotUseDiskStoreWhenUserRegionIsNotPersistent() {
+  public void CouldOverflowToDiskStoreWhenUserRegionIsNotPersistent() {
     createIndex(cache, "text");
     String diskStoreName = "diskStore";
     cache.createDiskStoreFactory().setDiskDirs(new File[] {tempFolderRule.getRoot()})
@@ -122,7 +122,13 @@ public class LuceneIndexCreationPersistenceIntegrationTest extends LuceneIntegra
         .create(REGION_NAME);
     verifyInternalRegions(region -> {
       assertTrue(region.getAttributes().getDiskStoreName() == null);
-      assertTrue(region.getAttributes().getEvictionAttributes().getAction().isNone());
+      assertTrue(region.getAttributes().getEvictionAttributes().getAction().isOverflowToDisk());
+      long previousTimeout = ((GemFireCacheImpl) cache).getTombstoneService()
+          .setReplicateTombstoneTimeout(region, 59000L);
+      assertEquals(60000L, previousTimeout);
+      previousTimeout = ((GemFireCacheImpl) cache).getTombstoneService()
+          .setReplicateTombstoneTimeout(region, 58000L);
+      assertEquals(59000L, previousTimeout);
     });
   }
 
