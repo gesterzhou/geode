@@ -28,8 +28,6 @@ import org.apache.geode.internal.cache.RegionClearedException;
 import org.apache.geode.internal.cache.RegionEntry;
 import org.apache.geode.internal.cache.Token;
 import org.apache.geode.internal.cache.entries.AbstractRegionEntry;
-import org.apache.geode.internal.cache.versions.ConcurrentCacheModificationException;
-import org.apache.geode.internal.cache.versions.VersionTag;
 import org.apache.geode.internal.cache.wan.GatewaySenderEventImpl;
 import org.apache.geode.internal.offheap.OffHeapHelper;
 import org.apache.geode.internal.offheap.ReferenceCountHelper;
@@ -245,13 +243,6 @@ public class RegionMapPut extends AbstractRegionMapPut {
       }
     } catch (RegionClearedException rce) {
       setClearOccurred(true);
-    } catch (ConcurrentCacheModificationException ccme) {
-      final EntryEventImpl event = getEvent();
-      VersionTag tag = event.getVersionTag();
-      if (tag != null && tag.isTimeStampUpdated()) {
-        getOwner().notifyTimestampsToGateways(event);
-      }
-      throw ccme;
     }
   }
 

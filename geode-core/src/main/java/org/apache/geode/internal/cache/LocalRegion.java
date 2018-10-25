@@ -5899,39 +5899,6 @@ public class LocalRegion extends AbstractRegion implements LoaderHelperFactory,
   }
 
   /**
-   * This notifies all WAN sites about updated timestamp on local site.
-   */
-  @Override
-  public void notifyTimestampsToGateways(EntryEventImpl event) {
-    // Create updateTimeStampEvent from event.
-    VersionTagHolder updateTimeStampEvent = new VersionTagHolder(event.getVersionTag());
-    updateTimeStampEvent.setOperation(Operation.UPDATE_VERSION_STAMP);
-    updateTimeStampEvent.setKeyInfo(event.getKeyInfo());
-    updateTimeStampEvent.setGenerateCallbacks(false);
-    updateTimeStampEvent.distributedMember = event.getDistributedMember();
-    updateTimeStampEvent.setNewEventId(getSystem());
-
-    if (event.getRegion() instanceof BucketRegion) {
-      BucketRegion bucketRegion = (BucketRegion) event.getRegion();
-      PartitionedRegion partitionedRegion = bucketRegion.getPartitionedRegion();
-      updateTimeStampEvent.setRegion(partitionedRegion);
-
-      // increment the tailKey for the event
-      if (partitionedRegion.isParallelWanEnabled()) {
-        bucketRegion.handleWANEvent(updateTimeStampEvent);
-      }
-
-      if (partitionedRegion.isInitialized()) {
-        partitionedRegion.notifyGatewaySender(EnumListenerEvent.TIMESTAMP_UPDATE,
-            updateTimeStampEvent);
-      }
-    } else {
-      updateTimeStampEvent.setRegion(event.getRegion());
-      notifyGatewaySender(EnumListenerEvent.TIMESTAMP_UPDATE, updateTimeStampEvent);
-    }
-  }
-
-  /**
    * Update CachePerfStats
    */
   private void updateStatsForCreate() {

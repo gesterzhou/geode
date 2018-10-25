@@ -28,7 +28,6 @@ import org.apache.geode.internal.cache.InternalRegion;
 import org.apache.geode.internal.cache.RegionClearedException;
 import org.apache.geode.internal.cache.RegionEntry;
 import org.apache.geode.internal.cache.Token;
-import org.apache.geode.internal.cache.versions.ConcurrentCacheModificationException;
 import org.apache.geode.internal.cache.versions.VersionStamp;
 import org.apache.geode.internal.cache.versions.VersionTag;
 import org.apache.geode.internal.logging.LogService;
@@ -253,14 +252,6 @@ public class RegionMapDestroy {
           }
         }
       } // synchronized re
-    } catch (ConcurrentCacheModificationException e) {
-      VersionTag tag = event.getVersionTag();
-      if (tag != null && tag.isTimeStampUpdated()) {
-        // Notify gateways of new time-stamp.
-        internalRegion.notifyTimestampsToGateways(event);
-      }
-      throw e;
-
     } finally {
       if (oqlIndexManager != null) {
         oqlIndexManager.countDownIndexUpdaters();
@@ -457,68 +448,59 @@ public class RegionMapDestroy {
 
   private void removeEntryOrLeaveTombstone() {
     // either remove the entry or leave a tombstone
-    try {
-      if (!event.isOriginRemote() && event.getVersionTag() != null
-          && internalRegion.getConcurrencyChecksEnabled()) {
-        // this shouldn't fail since we just created the entry.
-        // it will either generate a tag or apply a server's version tag
-        focusedRegionMap.processVersionTag(newRegionEntry, event);
-        if (doPart3) {
-          internalRegion.generateAndSetVersionTag(event, newRegionEntry);
-        }
-        try {
-          internalRegion.recordEvent(event);
-          newRegionEntry.makeTombstone(internalRegion, event.getVersionTag());
-        } catch (RegionClearedException e) {
-          // that's okay - when writing a tombstone into a disk, the
-          // region has been cleared (including this tombstone)
-        }
-        opCompleted = true;
-        // lruEntryCreate(newRegionEntry);
-      } else if (!haveTombstone) {
-        try {
-          assert newRegionEntry != tombstone;
-          newRegionEntry.setValue(internalRegion, Token.REMOVED_PHASE2);
-          focusedRegionMap.removeEntry(event.getKey(), newRegionEntry, false);
-        } catch (RegionClearedException e) {
-          // that's okay - we just need to remove the new entry
-        }
-      } else if (event.getVersionTag() != null) { // haveTombstone - update the
-        // tombstone version info
-        focusedRegionMap.processVersionTag(tombstone, event);
-        if (doPart3) {
-          // TODO: this looks like dead code. We only get here if doPart3 is true
-          // but then only happens if !event.isOriginRemote() && concurrencyChecks().
-          // But if we have a versionTag then we will have concurrencyChecks().
-          // If concurrencyChecks is false then this code makes no sense;
-          // we should not be doing anything with version tags in that case.
-          internalRegion.generateAndSetVersionTag(event, newRegionEntry);
-        }
-        // This is not conflict, we need to persist the tombstone again with new
-        // version tag
-        try {
-          tombstone.setValue(internalRegion, Token.TOMBSTONE);
-        } catch (RegionClearedException e) {
-          // that's okay - when writing a tombstone into a disk, the
-          // region has been cleared (including this tombstone)
-        }
+    if (!event.isOriginRemote() && event.getVersionTag() != null
+        && internalRegion.getConcurrencyChecksEnabled()) {
+      // this shouldn't fail since we just created the entry.
+      // it will either generate a tag or apply a server's version tag
+      focusedRegionMap.processVersionTag(newRegionEntry, event);
+      if (doPart3) {
+        internalRegion.generateAndSetVersionTag(event, newRegionEntry);
+      }
+      try {
         internalRegion.recordEvent(event);
-        internalRegion.rescheduleTombstone(tombstone, event.getVersionTag());
-        internalRegion.basicDestroyPart2(tombstone, event, inTokenMode,
-            true /* conflict with clear */, duringRI, true);
-        opCompleted = true;
-      } else {
-        Assert.assertTrue(event.getVersionTag() == null);
-        Assert.assertTrue(newRegionEntry == tombstone);
-        event.setVersionTag(getVersionTagFromStamp(tombstone.getVersionStamp()));
+        newRegionEntry.makeTombstone(internalRegion, event.getVersionTag());
+      } catch (RegionClearedException e) {
+        // that's okay - when writing a tombstone into a disk, the
+        // region has been cleared (including this tombstone)
       }
-    } catch (ConcurrentCacheModificationException e) {
-      VersionTag tag = event.getVersionTag();
-      if (tag != null && tag.isTimeStampUpdated()) {
-        // Notify gateways of new time-stamp.
-        internalRegion.notifyTimestampsToGateways(event);
+      opCompleted = true;
+      // lruEntryCreate(newRegionEntry);
+    } else if (!haveTombstone) {
+      try {
+        assert newRegionEntry != tombstone;
+        newRegionEntry.setValue(internalRegion, Token.REMOVED_PHASE2);
+        focusedRegionMap.removeEntry(event.getKey(), newRegionEntry, false);
+      } catch (RegionClearedException e) {
+        // that's okay - we just need to remove the new entry
       }
-      throw e;
+    } else if (event.getVersionTag() != null) { // haveTombstone - update the
+      // tombstone version info
+      focusedRegionMap.processVersionTag(tombstone, event);
+      if (doPart3) {
+        // TODO: this looks like dead code. We only get here if doPart3 is true
+        // but then only happens if !event.isOriginRemote() && concurrencyChecks().
+        // But if we have a versionTag then we will have concurrencyChecks().
+        // If concurrencyChecks is false then this code makes no sense;
+        // we should not be doing anything with version tags in that case.
+        internalRegion.generateAndSetVersionTag(event, newRegionEntry);
+      }
+      // This is not conflict, we need to persist the tombstone again with new
+      // version tag
+      try {
+        tombstone.setValue(internalRegion, Token.TOMBSTONE);
+      } catch (RegionClearedException e) {
+        // that's okay - when writing a tombstone into a disk, the
+        // region has been cleared (including this tombstone)
+      }
+      internalRegion.recordEvent(event);
+      internalRegion.rescheduleTombstone(tombstone, event.getVersionTag());
+      internalRegion.basicDestroyPart2(tombstone, event, inTokenMode,
+          true /* conflict with clear */, duringRI, true);
+      opCompleted = true;
+    } else {
+      Assert.assertTrue(event.getVersionTag() == null);
+      Assert.assertTrue(newRegionEntry == tombstone);
+      event.setVersionTag(getVersionTagFromStamp(tombstone.getVersionStamp()));
     }
   }
 
@@ -610,14 +592,6 @@ public class RegionMapDestroy {
               destroyEntryInternal(newRegionEntry, oldRegionEntry);
             } catch (RegionClearedException rce) {
               handleRegionClearedExceptionDuringDestroyEntryInternal(newRegionEntry);
-
-            } catch (ConcurrentCacheModificationException ccme) {
-              VersionTag tag = event.getVersionTag();
-              if (tag != null && tag.isTimeStampUpdated()) {
-                // Notify gateways of new time-stamp.
-                internalRegion.notifyTimestampsToGateways(event);
-              }
-              throw ccme;
             }
             // Note no need for LRU work since the entry is destroyed
             // and will be removed when gii completes
@@ -678,14 +652,6 @@ public class RegionMapDestroy {
             internalRegion.basicDestroyPart2(oldRegionEntry, event, inTokenMode,
                 true/* conflict with clear */, duringRI, true);
             doPart3 = true;
-          } catch (ConcurrentCacheModificationException ccme) {
-            // TODO: GEODE-3967: change will go here
-            VersionTag tag = event.getVersionTag();
-            if (tag != null && tag.isTimeStampUpdated()) {
-              // Notify gateways of new time-stamp.
-              internalRegion.notifyTimestampsToGateways(event);
-            }
-            throw ccme;
           }
           regionEntry = oldRegionEntry;
           opCompleted = true;

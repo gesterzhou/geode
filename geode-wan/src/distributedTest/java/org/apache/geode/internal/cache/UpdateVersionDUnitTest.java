@@ -37,6 +37,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.StringTokenizer;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
@@ -78,6 +79,7 @@ import org.apache.geode.test.junit.categories.WanTest;
 /**
  * @since GemFire 7.0.1
  */
+@Ignore
 @Category({WanTest.class})
 public class UpdateVersionDUnitTest extends JUnit4DistributedTestCase {
 

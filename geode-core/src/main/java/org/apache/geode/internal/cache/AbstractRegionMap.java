@@ -1509,13 +1509,6 @@ public abstract class AbstractRegionMap
                     removeEntry(event.getKey(), newRe, false);
                   }
                 } // !opCompleted
-              } catch (ConcurrentCacheModificationException ccme) {
-                VersionTag tag = event.getVersionTag();
-                if (tag != null && tag.isTimeStampUpdated()) {
-                  // Notify gateways of new time-stamp.
-                  owner.notifyTimestampsToGateways(event);
-                }
-                throw ccme;
               } finally {
                 if (!opCompleted) {
                   removeEntry(event.getKey(), newRe, false);
@@ -1583,13 +1576,6 @@ public abstract class AbstractRegionMap
                         } catch (RegionClearedException e) {
                           // that's okay - when writing a tombstone into a disk, the
                           // region has been cleared (including this tombstone)
-                        } catch (ConcurrentCacheModificationException ccme) {
-                          VersionTag tag = event.getVersionTag();
-                          if (tag != null && tag.isTimeStampUpdated()) {
-                            // Notify gateways of new time-stamp.
-                            owner.notifyTimestampsToGateways(event);
-                          }
-                          throw ccme;
                         }
                         // update the tombstone's version to prevent an older CCU/putAll from
                         // overwriting it
@@ -1652,13 +1638,6 @@ public abstract class AbstractRegionMap
                         EntryLogger.logInvalidate(event);
                         _getOwner().recordEvent(event);
                         clearOccured = true;
-                      } catch (ConcurrentCacheModificationException ccme) {
-                        VersionTag tag = event.getVersionTag();
-                        if (tag != null && tag.isTimeStampUpdated()) {
-                          // Notify gateways of new time-stamp.
-                          owner.notifyTimestampsToGateways(event);
-                        }
-                        throw ccme;
                       }
                       owner.basicInvalidatePart2(re, event, clearOccured /* conflict with clear */,
                           invokeCallbacks);

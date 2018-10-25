@@ -174,8 +174,6 @@ public interface InternalRegion extends Region, HasCachePerfStats, RegionEntryCo
   void basicDestroyPart2(RegionEntry re, EntryEventImpl event, boolean inTokenMode,
       boolean conflictWithClear, boolean duringRI, boolean invokeCallbacks);
 
-  void notifyTimestampsToGateways(EntryEventImpl event);
-
   boolean bridgeWriteBeforeDestroy(EntryEventImpl event, Object expectedOldValue)
       throws CacheWriterException, EntryNotFoundException, TimeoutException;
 

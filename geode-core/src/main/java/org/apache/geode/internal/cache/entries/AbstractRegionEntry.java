@@ -1824,21 +1824,6 @@ public abstract class AbstractRegionEntry implements HashRegionEntry<Object, Obj
           apply = checkForConflict(region, stamp, tag, isTombstoneFromGII, deltaCheck, dmId, sender,
               verbose);
         }
-      } catch (ConcurrentCacheModificationException e) {
-        // Even if we don't apply the operation we should always retain the
-        // highest timestamp in order for WAN conflict checks to work correctly
-        // because the operation may have been sent to other systems and been
-        // applied there
-        if (!tag.isGatewayTag() && stamp.getDistributedSystemId() == tag.getDistributedSystemId()
-            && tag.getVersionTimeStamp() > stamp.getVersionTimeStamp()) {
-          stamp.setVersionTimeStamp(tag.getVersionTimeStamp());
-          tag.setTimeStampApplied(true);
-          if (verbose != null) {
-            verbose
-                .append("\nThough in conflict the tag timestamp was more recent and was recorded.");
-          }
-        }
-        throw e;
       } finally {
         if (verbose != null) {
           logger.trace(LogMarker.TOMBSTONE_VERBOSE, verbose);
@@ -1901,7 +1886,6 @@ public abstract class AbstractRegionEntry implements HashRegionEntry<Object, Obj
       checkForDeltaConflict(region, stampVersion, tagVersion, stamp, tag, dmId, sender, verbose);
     }
 
-    boolean throwex = false;
     boolean apply = false;
     if (stampVersion == 0 || stampVersion < tagVersion) {
       if (verbose != null) {
@@ -1927,7 +1911,6 @@ public abstract class AbstractRegionEntry implements HashRegionEntry<Object, Obj
           if (verbose != null) {
             verbose.append(" - disallowing");
           }
-          throwex = true;
         }
       }
     } else {
@@ -1944,38 +1927,50 @@ public abstract class AbstractRegionEntry implements HashRegionEntry<Object, Obj
           tagID = sender;
         }
         if (verbose != null) {
-          verbose.append("\ncomparing IDs");
+          verbose.append("\ncomparing timestamps");
         }
-        int compare = stampID.compareTo(tagID);
-        if (compare < 0) {
+        long compareTS = tag.getVersionTimeStamp() - stamp.getVersionTimeStamp();
+        apply = processCompareResult(compareTS, tag.isPosDup(), verbose);
+        if (!apply) {
           if (verbose != null) {
-            verbose.append(" - applying change");
+            verbose.append("\ncomparing IDs");
           }
-          apply = true;
-        } else if (compare > 0) {
-          if (verbose != null) {
-            verbose.append(" - disallowing");
-          }
-          throwex = true;
-        } else if (tag.isPosDup()) {
-          if (verbose != null) {
-            verbose.append(" - disallowing duplicate marked with posdup");
-          }
-          throwex = true;
-        } else {
-          if (verbose != null) {
-            verbose.append(" - allowing duplicate");
-          }
+          int compare = stampID.compareTo(tagID);
+          apply = processCompareResult(compare, tag.isPosDup(), verbose);
         }
       }
     }
 
-    if (!apply && throwex) {
+    if (!apply) {
       region.getCachePerfStats().incConflatedEventsCount();
       persistConflictingTag(region, tag);
       throw new ConcurrentCacheModificationException();
     }
 
+    return apply;
+  }
+
+  private boolean processCompareResult(long compare, boolean isTagPosDup, StringBuilder verbose) {
+    boolean apply = false;
+    if (compare < 0) {
+      if (verbose != null) {
+        verbose.append(" - applying change");
+      }
+      apply = true;
+    } else if (compare > 0) {
+      if (verbose != null) {
+        verbose.append(" - disallowing");
+      }
+    } else if (isTagPosDup) {
+      if (verbose != null) {
+        verbose.append(" - disallowing duplicate marked with posdup");
+      }
+    } else {
+      if (verbose != null) {
+        verbose.append(" - allowing duplicate");
+      }
+      apply = true;
+    }
     return apply;
   }
 
