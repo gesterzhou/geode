@@ -161,6 +161,7 @@ public class TypeUtils implements OQLLexerTokenTypes {
     return new TemporalComparator();
   }
 
+  final static NumericComparator numericComparator = new NumericComparator();
   /**
    * Creates an instance of {@link org.apache.geode.cache.query.internal.types.NumericComparator}.
    *
@@ -168,7 +169,9 @@ public class TypeUtils implements OQLLexerTokenTypes {
    * @see org.apache.geode.cache.query.internal.types.NumericComparator
    */
   public static Comparator getNumericComparator() {
-    return new NumericComparator();
+    // NumericComparator numericComparator = new NumericComparator();
+//    System.out.println("GGG:"+System.identityHashCode(numericComparator));
+    return numericComparator;
   }
 
   /**

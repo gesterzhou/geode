@@ -165,6 +165,10 @@ public class ServerStarterRule extends MemberStarterRule<ServerStarterRule> impl
   }
 
   public void startServer() {
+    System.out.println("GGG1:"+this.properties.get("enable-time-statistics"));
+    System.out.println("GGG2:"+this.properties.get("statistic-sampling-enabled"));
+    System.out.println("GGG3:"+this.properties.get("statistic-sample-rate"));
+    System.out.println("GGG4:"+this.properties.get("statistic-archive-file"));
     CacheFactory cf = new CacheFactory(this.properties);
     cf.setPdxPersistent(pdxPersistent);
     cf.setPdxReadSerialized(pdxReadSerialized);
