@@ -189,6 +189,7 @@ import org.apache.geode.internal.cache.AddCacheServerProfileMessage;
 import org.apache.geode.internal.cache.BucketAdvisor;
 import org.apache.geode.internal.cache.CacheDistributionAdvisor;
 import org.apache.geode.internal.cache.CacheServerAdvisor.CacheServerProfile;
+import org.apache.geode.internal.cache.ClearPartitionedRegionMessage;
 import org.apache.geode.internal.cache.ClientRegionEventImpl;
 import org.apache.geode.internal.cache.CloseCacheMessage;
 import org.apache.geode.internal.cache.ControllerAdvisor.ControllerProfile;
@@ -972,6 +973,7 @@ public class DSFIDFactory implements DataSerializableFixedID {
     serializer.registerDSFID(GATEWAY_SENDER_QUEUE_ENTRY_SYNCHRONIZATION_ENTRY,
         GatewaySenderQueueEntrySynchronizationOperation.GatewaySenderQueueEntrySynchronizationEntry.class);
     serializer.registerDSFID(ABORT_BACKUP_REQUEST, AbortBackupRequest.class);
+    serializer.registerDSFID(CLEAR_PARTITIONED_REGION_MESSAGE, ClearPartitionedRegionMessage.class);
   }
 
   /**

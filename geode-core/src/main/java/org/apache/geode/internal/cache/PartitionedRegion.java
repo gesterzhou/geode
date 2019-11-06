@@ -489,6 +489,8 @@ public class PartitionedRegion extends LocalRegion
     return prIdToPR;
   }
 
+  private final Object clearLock = new Object();
+
   /**
    * Byte 0 = no NWHOP Byte 1 = NWHOP to servers in same server-grp Byte 2 = NWHOP tp servers in
    * other server-grp
@@ -2130,18 +2132,39 @@ public class PartitionedRegion extends LocalRegion
     throw new UnsupportedOperationException();
   }
 
-  /**
-   * @since GemFire 5.0
-   * @throws UnsupportedOperationException OVERRIDES
-   */
-  @Override
-  public void clear() {
-    throw new UnsupportedOperationException();
+  void cmnClearRegion(RegionEventImpl regionEvent, boolean cacheWrite, boolean useRVV) {
+    System.out.println(Thread.currentThread().getName() + ": PR.cmnClearRegion");
+    synchronized (this.clearLock) {
+      // Invoke CacheWriter if necessary
+      if (cacheWrite) {
+        cacheWriteBeforeRegionClear(regionEvent);
+      }
+
+      // Clear alll local primary buckets
+      clearLocalPrimaryBuckets();
+
+      // Clear primary buckets on remote members
+      Set<InternalDistributedMember> recipients =
+          getCacheDistributionAdvisor().adviseInvalidateRegion();
+      if (!regionEvent.isOriginRemote() && regionEvent.getOperation().isDistributed()) {
+        ClearPartitionedRegionMessage.send(regionEvent, recipients);
+      }
+    }
+
+    // since clients do not maintain RVVs except for tombstone GC
+    // we need to ensure that current ops reach the client queues
+    // before queuing a clear, but there is no infrastructure for doing so
+    notifyBridgeClients(regionEvent);
   }
 
-  @Override
-  void basicClear(RegionEventImpl regionEvent, boolean cacheWrite) {
-    throw new UnsupportedOperationException();
+  protected void clearLocalPrimaryBuckets() {
+    for (BucketRegion br : this.dataStore.getAllLocalPrimaryBucketRegions()) {
+      System.out.println(Thread.currentThread().getName()
+          + ":PartitionedRegion.clearLocalPrimaryBuckets about to clear BR=" + br.getName());
+      br.clear();
+      System.out.println(Thread.currentThread().getName()
+          + ":PartitionedRegion.clearLocalPrimaryBuckets done clear BR=" + br.getName());
+    }
   }
 
   @Override
